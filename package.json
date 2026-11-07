@@ -1,0 +1,16 @@
+{
+  "name": "vals-auditor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Website health-check generator for VAL'S Digital Solutions prospects (Lighthouse + custom local-business checks -> one-page report).",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "audit": "node audit.mjs"
+  },
+  "dependencies": {
+    "chrome-launcher": "^1.1.2",
+    "cheerio": "^1.0.0",
+    "lighthouse": "^12.2.1"
+  }
+}

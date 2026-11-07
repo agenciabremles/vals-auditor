@@ -1,0 +1,46 @@
+name: Audit websites
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: "URLs to audit, separated by commas. Leave empty to audit everything in prospects.csv"
+        required: false
+        default: ""
+      runs:
+        description: "Lighthouse runs per site (the scores are averaged)"
+        required: false
+        default: "2"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Run audits
+        env:
+          URLS: ${{ github.event.inputs.urls }}
+          RUNS: ${{ github.event.inputs.runs }}
+        run: |
+          if [ -n "$URLS" ]; then
+            node audit.mjs --urls "$URLS" --runs "${RUNS:-2}"
+          else
+            node audit.mjs --runs "${RUNS:-2}"
+          fi
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: vals-audit-reports
+          path: out/
+          retention-days: 30
