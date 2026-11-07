@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import * as chromeLauncher from 'chrome-launcher';
 import { runChecks } from './lib/checks.mjs';
 import { runLighthouse } from './lib/lighthouse.mjs';
+import { renderDom } from './lib/render.mjs';
 import { speedFindings, prioritise, opportunityScore } from './lib/findings.mjs';
 import { renderReport } from './lib/report.mjs';
 
@@ -90,7 +91,9 @@ async function main() {
     const dir = path.join(outDir, id);
     fs.mkdirSync(dir, { recursive: true });
 
-    const checks = await runChecks(url, { city: p.city });
+    const renderedHtml = renderDom(url);
+    if (!renderedHtml) console.warn('  Could not render the page in Chrome; checking raw HTML only.');
+    const checks = await runChecks(url, { city: p.city, renderedHtml });
     let lh = { ok: false, error: 'skipped' };
     if (!flag('skip-lighthouse') && checks.reachable) {
       console.log(`  Lighthouse (${runs} run${runs > 1 ? 's' : ''})…`);
