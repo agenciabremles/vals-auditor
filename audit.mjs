@@ -101,6 +101,13 @@ async function main() {
       if (!lh.ok) console.warn('  Lighthouse failed:', lh.error);
     }
 
+    const lhBlocked = !lh.ok && /ERRORED_DOCUMENT_REQUEST|\b40[13]\b|\b429\b/.test(lh.error || '');
+    if (checks.blocked || (lhBlocked && !checks.findings.length)) {
+      console.warn('  ⛔ This site blocks automated testing (' + (checks.facts?.blockedReason || lh.error || 'blocked') + '). No report generated.');
+      fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify({ prospect: { ...p, url }, status: 'blocked', checks, lighthouse: lh }, null, 2));
+      summary.push({ url, name: p.name, trade: p.trade, city: p.city, status: 'blocked', performance: '', seo: '', accessibility: '', best_practices: '', high: '', medium: '', opportunity: '', platform: '', report: '' });
+      continue;
+    }
     const findings = prioritise([...checks.findings, ...speedFindings(lh)]);
     const prospect = { ...p, url };
     const result = { prospect, date, lighthouse: lh, checks: { ...checks, findings: undefined }, findings };
@@ -113,7 +120,7 @@ async function main() {
 
     const opp = opportunityScore(findings, lh);
     const row = {
-      url, name: p.name, trade: p.trade, city: p.city,
+      url, name: p.name, trade: p.trade, city: p.city, status: lh.ok ? 'ok' : 'partial',
       performance: lh.scores?.performance ?? '', seo: lh.scores?.seo ?? '',
       accessibility: lh.scores?.accessibility ?? '', best_practices: lh.scores?.['best-practices'] ?? '',
       high: findings.filter((f) => f.level === 'high').length,
@@ -124,7 +131,7 @@ async function main() {
     console.log(`  Done · opportunity ${opp}/100 · ${row.high} high, ${row.medium} medium issues`);
   }
 
-  summary.sort((a, b) => b.opportunity - a.opportunity);
+  summary.sort((a, b) => (b.opportunity || -1) - (a.opportunity || -1));
   const cols = Object.keys(summary[0]);
   fs.writeFileSync(
     path.join(outDir, 'summary.csv'),
@@ -135,9 +142,9 @@ async function main() {
   const md = [
     '## VAL\'S audit results (best opportunities first)',
     '',
-    '| Business | Speed | SEO | A11y | High | Med | Opportunity |',
-    '|---|---|---|---|---|---|---|',
-    ...summary.map((r) => `| ${r.name || r.url} | ${r.performance} | ${r.seo} | ${r.accessibility} | ${r.high} | ${r.medium} | **${r.opportunity}** |`),
+    '| Business | Status | Speed | SEO | A11y | High | Med | Opportunity |',
+    '|---|---|---|---|---|---|---|---|',
+    ...summary.map((r) => `| ${r.name || r.url} | ${r.status} | ${r.performance} | ${r.seo} | ${r.accessibility} | ${r.high} | ${r.medium} | ${r.opportunity === "" ? "–" : `**${r.opportunity}**`} |`),
   ].join('\n');
   fs.writeFileSync(path.join(outDir, 'summary.md'), md + '\n');
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + '\n');
